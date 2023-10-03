@@ -56,27 +56,30 @@ public class chatThread implements Runnable {
 
     // Metodo que implementa la logica del hilo
     public void run() {
-        initialize();  // Llamamos el metodo para preparar los flujos de entrada-salida
+        initialize();  // Llamamos el método para preparar los flujos de entrada-salida
         try {
             while (socket.isConnected()) { 
-				InputStream inputStream = socket.getInputStream(); // Leemos los datos del cliente a traves de un arreglo de bytes
-				byte[] data = new byte[1024];
-				inputStream.read(data);
-
-				String message = new String(data); // Convertimos el arreglo de bytes en un String
-                System.out.println(message);
-
-                StringTokenizer tokens = new StringTokenizer(message, "^"); //Separamos el mensaje por tokens 
+                InputStream inputStream = socket.getInputStream(); // Leemos los datos del cliente a través de un arreglo de bytes
+                byte[] data = new byte[1024];
+                int bytesRead = inputStream.read(data); // Leemos los datos y obtenemos la cantidad de bytes leídos
+    
+                if (bytesRead == -1) {
+                    // El cliente se desconectó, salimos del bucle
+                    break;
+                }
+    
+                String message = new String(data, 0, bytesRead); // Convertimos el arreglo de bytes en un String
+    
+                StringTokenizer tokens = new StringTokenizer(message, "^"); // Separamos el mensaje por tokens 
                 String command = tokens.nextToken(); // Obtenemos token que contiene el comando
-                userName = getUserName(message); // Llamamos el metodo para obtener el nombre de usuario
-
-                if(command.equalsIgnoreCase("m")) {
+                userName = getUserName(message); // Llamamos el método para obtener el nombre de usuario
+    
+                if (command.equalsIgnoreCase("m")) {
                     String msg = tokens.nextToken(); // Obtenemos el token que contiene el mensaje
-                    String res = userName + ": " + msg;
-                    byte [] resArray = res.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
-                    sendMessage(resArray); // Llamamos el metodo para mandar el mensaje a todos los clientes
-                } 
-
+                    String formattedMessage = userName + ": " + msg.trim();
+                    byte[] resArray = formattedMessage.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
+                    sendMessage(resArray); // Llamamos el método para mandar el mensaje a todos los clientes
+                }
             }
         } catch (IOException ioe) {
             System.out.println("Problema en run()");
@@ -90,4 +93,5 @@ public class chatThread implements Runnable {
             }
         }
     }
+    
 }
