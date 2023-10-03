@@ -1,137 +1,93 @@
+// Importamos las librerias a usar 
 import java.io.*;
 import java.net.*;
 import java.util.*;
 
+public class chatThread implements Runnable {
+    
+    // Declaramos las variables 
+    private Vector<Socket> clients; // Vector que almacena los sockets de los clientes
+    private Socket socket; // Socket con el que se esta comunicando el hilo
+    private InputStream inputStream; // Flujo de datos para recibir los datos 
+    private OutputStream outputStream; // Flujo de datos para enviar los datos 
+    private String userName = ""; // Nombre de usuario que se mostrara en el chat
 
-public class chatThread implements Runnable{
-	//Declaracion de variables globales
-	private Map<String, Socket> clientsMap; //Mapa que guarda los sockets de los clientes conectados
-	private Socket socket; //Socket del cliente actual que el hilo esta manejando
-	private DataInputStream netIn; //Flujo de entrada para recibir los mensajes del cliente
-	private DataOutputStream netOut; //Flujo de datos para enviar archivos
-	public chatThread(Socket socket, Map<String, Socket> clientsMap){
-		this.clientsMap = clientsMap;
-		this.socket = socket;
-	}
-	
-	//Metodo que start el flujo de entrada para recibir datos del cliente actual
-	public void start(){
-		try{
-			netIn = new DataInputStream(socket.getInputStream());
-		}catch (IOException ioe){
-			System.err.println("Problema al crear el flujo start()");
-			System.err.println(ioe.getMessage());
-		}
-	}
+    // Cobstructor que toma un socket y un vector de sockets para inicializar las variables 
+    public chatThread(Socket socket, Vector<Socket> clients) {
+        this.clients = clients;
+        this.socket = socket;
+    }
 
-	//Metodo que envia el mensaje a todos los clientes conectados
-	public void sendMsg(String msg){
-		// DataOutputStream netOut; 
-		try{
-			//Recorremos toda la lista de clientes y envia el mensaje 
-			for (Socket socketTmp : clientsMap.values()){			
-				netOut = new DataOutputStream(socketTmp.getOutputStream());
-				netOut.writeUTF(msg);
-			}
-		}catch (IOException ioe){ //Cachamos el error
-			System.err.println("Problema: NO se pueden crear flujos enviaMensaje()");
-			System.err.println(ioe.getMessage());
-		}
-	}
+    // Metodo que obtiene los flujos de entrada y salida del socket del cliente
+    public void initialize() {
+        try {
+            inputStream = socket.getInputStream();
+            outputStream = socket.getOutputStream();
+        } catch (IOException ioe) {
+            System.err.println("Problema al crear los flujos initialize()");
+            System.err.println(ioe.getMessage());
+        }
+    }
 
-	//Metodo que envia archivos
-	public void sendFile(String fileName) throws IOException{
-		try{
-			//Creamos un nuevo objeto tipo File
-			File file = new File(fileName);
-			//Comprobamos si existe el archivo
-			if(file.exists()){
-				int totalLen = (int) file.length();
-				netOut.writeUTF(fileName);
-				//Creamos los flujos de datos
-				BufferedInputStream bis;
-				BufferedOutputStream bos;
-				bis = new BufferedInputStream(new FileInputStream(fileName));
-				bos = new BufferedOutputStream(socket.getOutputStream());
-				//Creamos un arreglo de bytes
-				byte[] buffer = new byte[1024];
-				int bytesRead = 0;
-				int length = 1024;
-				int rest = 0;
-				while(true){
-					rest = totalLen - bytesRead;
-					if(rest > length) {
-						int read = bis.read(buffer, 0, length);
-						bos.write(buffer, 0, read);
-					} else {
-						int read = bis.read(buffer, 0, rest);
-						bos.write(buffer, 0 ,read);
-						bos.flush();
-						bis.close();
-						return;
-					}
-					bytesRead += 1024;
-				} 
-			} else {
-				String res = "No se pudo enviar el archivo";
-				netOut.writeUTF(res);
-			}
-		} catch (IOException ioe) {
-			System.out.println(ioe.getMessage());
-		}
-	}
-	
-	//Metodo que inicia un hilo para manejar la comunicacion con el cliente
-	public void run(){
-		//Llamamos al metodo start para el flujo de entrada
-		start();
-		try{
-			while(true){
-				String msg = netIn.readUTF();
-				//Se dividen los mensajes en tokens
-				StringTokenizer st = new StringTokenizer(msg, "^");
-				if (st.countTokens() >= 3){
-					String command = st.nextToken();
-					//Si el comando es 'm' se envia el mensaje
-					if (command.equalsIgnoreCase("m")){
-						sendMsg(msg);
-					} else if (command.equalsIgnoreCase("request_ip_port")) {
-						// Cliente solicita dirección IP y puerto de otro cliente
-                        String targetIP = st.nextToken(); // IP del cliente destino
-                        Socket targetSocket = clientsMap.get(targetIP);
-                        if (targetSocket != null) {
-                            // Envía la dirección IP y puerto del cliente destino al cliente solicitante
-                            String response = "peer_info^" + targetSocket.getInetAddress().getHostAddress() + "^" + targetSocket.getPort();
-                            netOut.writeUTF(response);
-                        }
-					}
-					// else {
-					// 	String res = "m^Server@";
-					// 	InetAddress ip = InetAddress.getLocalHost();
-					// 	res += ip.getHostAddress() + "^-^";
-					// 	String aliasIP = st.nextToken();
-					// 	res += aliasIP.substring(0, aliasIP.indexOf("@")); //Obtiene el alias
-					// 	String ipCliente = aliasIP.substring(aliasIP.indexOf("@") + 1);
-					// 	//Si el comando es igual a 'j' se manda mensaje de que alguien se unio
-					// 	if (command.equalsIgnoreCase("j")){
-					// 		res += " joined from " + ipCliente + "^";
-					// 		sendMsg(res);
-					// 	} else { //Si el cliente se desconecta
-					// 		res += " parted from " + ipCliente + "^";
-					// 		clientsMap.remove(socket);
-					// 		sendMsg(res);
-					// 		return;
-					// 	}
-						
-					// }
-				}
-			}			
-		}catch (IOException ioe){
-			System.out.println("problema en run()");
-			System.out.println(ioe.getMessage());
-			
-		}
-	}
+    // Metodo que se usa para enviar un mensaje a todos los clientes conectados que toma un arreglo de bytes como parametro
+    public void sendMessage(byte[] msg) {
+        try {
+            for (Socket socketTmp : clients) { // Recorremos el arreglo de sockets
+                OutputStream clientOutput = socketTmp.getOutputStream(); // Creamos un flujo de datos para enviar el mensaje
+                clientOutput.write(msg); // Enviamos el mensaje
+                clientOutput.flush();
+            }
+        } catch (IOException ioe) {
+            System.err.println("Problema: No se pueden enviar mensajes");
+            System.err.println(ioe.getMessage());
+        }
+    }
 
+    // Metodo que obtiene el nombre del usuario
+    public String getUserName(String message){
+        StringTokenizer tokens = new StringTokenizer(message, "^"); //Separamos el mensaje por tokens
+        String command = tokens.nextToken();
+        String msg = tokens.nextToken();
+        if(command.equalsIgnoreCase("u") && userName.isEmpty()){
+            userName = msg; // Asignamos valor a userName
+        }
+        return userName;
+    }
+
+    // Metodo que implementa la logica del hilo
+    public void run() {
+        initialize();  // Llamamos el metodo para preparar los flujos de entrada-salida
+        try {
+            while (socket.isConnected()) { 
+				InputStream inputStream = socket.getInputStream(); // Leemos los datos del cliente a traves de un arreglo de bytes
+				byte[] data = new byte[1024];
+				inputStream.read(data);
+
+				String message = new String(data); // Convertimos el arreglo de bytes en un String
+                System.out.println(message);
+
+                StringTokenizer tokens = new StringTokenizer(message, "^"); //Separamos el mensaje por tokens 
+                String command = tokens.nextToken(); // Obtenemos token que contiene el comando
+                userName = getUserName(message); // Llamamos el metodo para obtener el nombre de usuario
+
+                if(command.equalsIgnoreCase("m")) {
+                    String msg = tokens.nextToken(); // Obtenemos el token que contiene el mensaje
+                    String res = userName + ": " + msg;
+                    byte [] resArray = res.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
+                    sendMessage(resArray); // Llamamos el metodo para mandar el mensaje a todos los clientes
+                } 
+
+            }
+        } catch (IOException ioe) {
+            System.out.println("Problema en run()");
+            System.out.println(ioe.getMessage());
+        } finally { // Aseguramos que el socket se cierre correctamente y se elimina de la lista de clientes 
+            try { 
+                socket.close(); // Cerramos el socket
+                clients.remove(socket); // Movemos el socket del vector
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }
-
