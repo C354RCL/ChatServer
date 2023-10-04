@@ -55,6 +55,31 @@ public class chatThread implements Runnable {
         return userNames.get(socket);
     }
 
+    // Método para enviar el HashMap al cliente
+    public void sendUserNames() {
+        try {
+            // Crear una lista de nombres de usuario a partir de userNames.values()
+            List<String> userList = new ArrayList<>(userNames.values());
+    
+            // Formatear la lista de nombres de usuario como una cadena
+            String usersList = "lu^" + String.join("^", userList) + ";";
+    
+            System.out.println(usersList);
+    
+            // Convertir la cadena en un arreglo de bytes
+            byte[] bytes = usersList.getBytes();
+    
+            // Enviar el arreglo de bytes a través de outputStream a tu cliente
+            outputStream.write(bytes);
+            outputStream.flush();
+        } catch (IOException ioe) {
+            System.err.println("Problema: No se pueden enviar el HashMap de nombres de usuario");
+            System.err.println(ioe.getMessage());
+        }
+    }
+    
+    
+
     // Método que implementa la lógica del hilo
     public void run() {
         initialize();  // Llamamos el método para preparar los flujos de entrada-salida
@@ -84,14 +109,16 @@ public class chatThread implements Runnable {
                 }
 
                 // Imprimir los valores en clientInfo
-                System.out.println("Clientes conectados: " + userNames.values());
+                //System.out.println("Clientes conectados: " + userNames.values());
 
                 if (command.equalsIgnoreCase("m")) {
                     String msg = tokens.nextToken(); // Obtenemos el token que contiene el mensaje
-                    String formattedMessage = userName + ": " + msg.trim();
+                    String formattedMessage = "m^"+userName + ": " + msg.trim();
                     byte[] resArray = formattedMessage.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
                     sendMessage(resArray); // Llamamos el método para mandar el mensaje a todos los clientes
                 }
+
+                sendUserNames();
             }
         } catch (IOException ioe) {
             System.out.println("Problema en run()");
