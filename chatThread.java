@@ -11,6 +11,8 @@ public class chatThread implements Runnable {
     private InputStream inputStream; // Flujo de datos para recibir los datos 
     private OutputStream outputStream; // Flujo de datos para enviar los datos 
     private HashMap<Socket, String> userNames = new HashMap<>(); // HashMap para almacenar los nombres de usuario asociados a los sockets
+    private String userName; // Nombre del cliente actual
+    private String receiverUser; // Nombre del cliente destinatario 
 
     // Constructor que toma un socket y un vector de sockets para inicializar las variables 
     public chatThread(Socket socket, Vector<Socket> clients, HashMap<Socket, String> userNames) {
@@ -24,6 +26,7 @@ public class chatThread implements Runnable {
         try {
             inputStream = socket.getInputStream();
             outputStream = socket.getOutputStream();
+            userName = userNames.get(socket); // Obtenemos el nombre del cliente actual
         } catch (IOException ioe) {
             System.err.println("Problema al crear los flujos initialize()");
             System.err.println(ioe.getMessage());
@@ -41,6 +44,24 @@ public class chatThread implements Runnable {
         } catch (IOException ioe) {
             System.err.println("Problema: No se pueden enviar mensajes");
             System.err.println(ioe.getMessage());
+        }
+    }
+
+    // Metodo para enviar un mensaje privado 
+    public void sendPrivateMessage(String receiverUser, String message) {
+        for (Socket clientSocket : clients) {
+            String clientName = userNames.get(clientSocket);
+            if (clientName != null && clientName.equals(receiverUser)) {
+                try {
+                    OutputStream clientOutput = clientSocket.getOutputStream();
+                    String formattedMessage = "p^" + userName + ": " + message; // p para mensajes privados
+                    byte[] resArray = formattedMessage.getBytes();
+                    clientOutput.write(resArray);
+                    clientOutput.flush();
+                } catch (IOException ioe) {
+                    // Manejar la excepción
+                }
+            }
         }
     }
 
@@ -62,9 +83,7 @@ public class chatThread implements Runnable {
             List<String> userList = new ArrayList<>(userNames.values());
     
             // Formatear la lista de nombres de usuario como una cadena
-            String usersList = "lu^" + String.join("^", userList) + ";";
-    
-            System.out.println(usersList);
+            String usersList = "lu^" + String.join(";", userList) + ";";
     
             // Convertir la cadena en un arreglo de bytes
             byte[] bytes = usersList.getBytes();
@@ -86,6 +105,8 @@ public class chatThread implements Runnable {
         String userName = "";
         try {
             while (socket.isConnected()) { 
+                sendUserNames();
+
                 InputStream inputStream = socket.getInputStream(); // Leemos los datos del cliente a través de un arreglo de bytes
                 byte[] data = new byte[1024];
                 int bytesRead = inputStream.read(data); // Leemos los datos y obtenemos la cantidad de bytes leídos
@@ -98,27 +119,33 @@ public class chatThread implements Runnable {
                 String message = new String(data, 0, bytesRead); // Convertimos el arreglo de bytes en un String
     
                 StringTokenizer tokens = new StringTokenizer(message, "^"); // Separamos el mensaje por tokens 
+
                 String command = tokens.nextToken(); // Obtenemos token que contiene el comando
 
                 if (command.equalsIgnoreCase("u")) {
                     userName = getUserName(message); // Llamamos el método para obtener el nombre de usuario
                     int port = socket.getPort(); // Obtenemos el puerto que usa el socket
-                    String portString = String.valueOf(port);
-                    String clientIfo = userName+"^"+portString; // Lo concatetamos al nombre de usuario
+                    //String portString = String.valueOf(port);
+                    String clientIfo = userName; // Lo concatetamos al nombre de usuario
                     userNames.put(socket, clientIfo); // Asociamos el nombre de usuario al socket en el HashMap
-                }
-
-                // Imprimir los valores en clientInfo
-                //System.out.println("Clientes conectados: " + userNames.values());
-
-                if (command.equalsIgnoreCase("m")) {
+                } else if (command.equalsIgnoreCase("m")) {
                     String msg = tokens.nextToken(); // Obtenemos el token que contiene el mensaje
                     String formattedMessage = "m^"+userName + ": " + msg.trim();
                     byte[] resArray = formattedMessage.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
                     sendMessage(resArray); // Llamamos el método para mandar el mensaje a todos los clientes
-                }
+                } else if(command.equalsIgnoreCase("nc")){
+                    String transmitter = tokens.nextToken(); // Obtenemos quien quiere el chat privado
+                    String receiver = tokens.nextToken(); // Obtenemos el receptor del mensaje
+                    String mString = "nc^" + receiver;
+                    byte[] aMsg = mString.getBytes(); //Convertimos el mensaje en bytes
+                    sendMessage(aMsg); // Enviamos el mensaje
+                    System.out.println(receiver);
+                } else if (command.equalsIgnoreCase("p")) {
+                    String recipient = tokens.nextToken(); // Obtener el destinatario del mensaje privado
+                    String privateMsg = tokens.nextToken(); // Obtener el mensaje privado
+                    sendPrivateMessage(recipient, privateMsg); // Enviar mensaje privado
+                } 
 
-                sendUserNames();
             }
         } catch (IOException ioe) {
             System.out.println("Problema en run()");
