@@ -12,7 +12,8 @@ public class chatThread implements Runnable {
     private OutputStream outputStream; // Flujo de datos para enviar los datos 
     private HashMap<Socket, String> userNames = new HashMap<>(); // HashMap para almacenar los nombres de usuario asociados a los sockets
     private String userName; // Nombre del cliente actual
-    private String receiverUser; // Nombre del cliente destinatario 
+    private String receiverUser; // Nombre del cliente destinatario
+    private int portNc = 7500; 
 
     // Constructor que toma un socket y un vector de sockets para inicializar las variables 
     public chatThread(Socket socket, Vector<Socket> clients, HashMap<Socket, String> userNames) {
@@ -134,9 +135,11 @@ public class chatThread implements Runnable {
                     byte[] resArray = formattedMessage.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
                     sendMessage(resArray); // Llamamos el método para mandar el mensaje a todos los clientes
                 } else if(command.equalsIgnoreCase("nc")){
+                    portNc += 2;
                     String transmitter = tokens.nextToken(); // Obtenemos quien quiere el chat privado
                     String receiver = tokens.nextToken(); // Obtenemos el receptor del mensaje
-                    String mString = "nc^" + receiver;
+                    String mString = "nc^" + receiver + "^" + portNc;
+                    System.out.println(mString);
                     byte[] aMsg = mString.getBytes(); //Convertimos el mensaje en bytes
                     sendMessage(aMsg); // Enviamos el mensaje
                     System.out.println(receiver);
