@@ -32,7 +32,7 @@ public class Server {
                 try {
                     Socket socket = welcomeSocket.accept(); // Esperamos conexiones y las aceptamos
                     clients.add(socket); //Agregamos el socket del cliente al vector 
-                    System.out.println("Conexión iniciada");
+                    // System.out.println("Conexión iniciada");
 
                     chatThread hiloChat = new chatThread(socket, clients, userNames); //Creamos un hilo para que se comunique con el cliente
                     Thread thread = new Thread(hiloChat); // Iniciamos el hilo 

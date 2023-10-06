@@ -48,24 +48,6 @@ public class chatThread implements Runnable {
         }
     }
 
-    // Metodo para enviar un mensaje privado 
-    public void sendPrivateMessage(String receiverUser, String message) {
-        for (Socket clientSocket : clients) {
-            String clientName = userNames.get(clientSocket);
-            if (clientName != null && clientName.equals(receiverUser)) {
-                try {
-                    OutputStream clientOutput = clientSocket.getOutputStream();
-                    String formattedMessage = "p^" + userName + ": " + message; // p para mensajes privados
-                    byte[] resArray = formattedMessage.getBytes();
-                    clientOutput.write(resArray);
-                    clientOutput.flush();
-                } catch (IOException ioe) {
-                    // Manejar la excepción
-                }
-            }
-        }
-    }
-
     // Método que obtiene el nombre del usuario
     public String getUserName(String message) {
         StringTokenizer tokens = new StringTokenizer(message, "^"); // Separamos el mensaje por tokens
@@ -97,8 +79,6 @@ public class chatThread implements Runnable {
             System.err.println(ioe.getMessage());
         }
     }
-    
-    
 
     // Método que implementa la lógica del hilo
     public void run() {
@@ -118,6 +98,8 @@ public class chatThread implements Runnable {
                 }
     
                 String message = new String(data, 0, bytesRead); // Convertimos el arreglo de bytes en un String
+
+                System.out.println(message);
     
                 StringTokenizer tokens = new StringTokenizer(message, "^"); // Separamos el mensaje por tokens 
 
@@ -125,7 +107,7 @@ public class chatThread implements Runnable {
 
                 if (command.equalsIgnoreCase("u")) {
                     userName = getUserName(message); // Llamamos el método para obtener el nombre de usuario
-                    int port = socket.getPort(); // Obtenemos el puerto que usa el socket
+                    //int port = socket.getPort(); // Obtenemos el puerto que usa el socket
                     //String portString = String.valueOf(port);
                     String clientIfo = userName; // Lo concatetamos al nombre de usuario
                     userNames.put(socket, clientIfo); // Asociamos el nombre de usuario al socket en el HashMap
@@ -135,18 +117,78 @@ public class chatThread implements Runnable {
                     byte[] resArray = formattedMessage.getBytes(); // Convertimos a res en un arreglo de bytes para poder enviarlo
                     sendMessage(resArray); // Llamamos el método para mandar el mensaje a todos los clientes
                 } else if(command.equalsIgnoreCase("nc")){
-                    portNc += 2;
                     String transmitter = tokens.nextToken(); // Obtenemos quien quiere el chat privado
-                    String receiver = tokens.nextToken(); // Obtenemos el receptor del mensaje
-                    String mString = "nc^" + receiver + "^" + portNc;
-                    System.out.println(mString);
-                    byte[] aMsg = mString.getBytes(); //Convertimos el mensaje en bytes
-                    sendMessage(aMsg); // Enviamos el mensaje
-                    System.out.println(receiver);
+                    receiverUser = tokens.nextToken(); // Obtenemos el receptor del mensaje
+
+                    // Construir el mensaje
+                    String newMessage = "nc^"+transmitter+"^2131";
+
+                    // Obtener el socket del receptor a través del HashMap de nombres de usuario
+                    Socket receiverSocket = null;
+                    for (Map.Entry<Socket, String> entry : userNames.entrySet()) {
+                        if (entry.getValue().equals(receiverUser)) {
+                            receiverSocket = entry.getKey();
+                            break;
+                        }
+                    }
+
+                    // Verificar si se encontró el socket del receptor
+                    if (receiverSocket != null) {
+                        try {
+                            // Obtener el outputStream del socket del receptor
+                            OutputStream receiverOutput = receiverSocket.getOutputStream();
+
+                            // Convertir el mensaje en un arreglo de bytes y enviarlo al receptor
+                            byte[] newMessageBytes = newMessage.getBytes();
+                            receiverOutput.write(newMessageBytes);
+                            receiverOutput.flush();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        // El receptor no fue encontrado, puedes manejar esto de acuerdo a tus necesidades
+                        System.err.println("Usuario receptor no encontrado: " + receiverUser);
+                    }
                 } else if (command.equalsIgnoreCase("p")) {
                     String recipient = tokens.nextToken(); // Obtener el destinatario del mensaje privado
                     String privateMsg = tokens.nextToken(); // Obtener el mensaje privado
-                    sendPrivateMessage(recipient, privateMsg); // Enviar mensaje privado
+                    // System.out.println("Lo va a recibir " +recipient);
+                    // System.out.println("Mensaje " + privateMsg);
+
+                    // Construir el mensaje "p^userName^mensaje"
+                    String newMessage = "p^" + recipient + "^" + privateMsg.trim();
+
+                    // // Obtener el socket del destinatario a través del HashMap de nombres de usuario
+                    // Socket recipientSocket = null;
+                    // for (Map.Entry<Socket, String> entry : userNames.entrySet()) {
+                    //     if (entry.getValue().equals(recipient)) {
+                    //         recipientSocket = entry.getKey();
+                    //         break;
+                    //     }
+                    // }
+
+                    // // Verificar si se encontró el socket del destinatario
+                    // if (recipientSocket != null) {
+                    //     try {
+                    //         System.out.println(recipientSocket);
+
+                    //         // Obtener el outputStream del socket del destinatario
+                    //         OutputStream recipientOutput = recipientSocket.getOutputStream();
+
+                    //         // Convertir el mensaje en un arreglo de bytes y enviarlo al destinatario
+                    //         byte[] newMessageBytes = newMessage.getBytes();
+                    //         recipientOutput.write(newMessageBytes);
+                    //         recipientOutput.flush();
+                    //         System.out.println("Bytes enviados a " + recipient);
+                    //     } catch (IOException e) {
+                    //         e.printStackTrace();
+                    //     }
+                    // } else {
+                    //     // El destinatario no fue encontrado, puedes manejar esto de acuerdo a tus necesidades
+                    //     System.err.println("Usuario destinatario no encontrado: " + recipient);
+                    // }
+                    byte [] newMessagePrivate = newMessage.getBytes();
+                    sendMessage(newMessagePrivate);
                 } 
 
             }
